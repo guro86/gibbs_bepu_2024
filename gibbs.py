@@ -6,7 +6,7 @@ Created on Thu Oct  5 15:41:18 2023
 @author: gustav
 """
 
-from scipy.stats import norm, truncnorm, uniform
+from scipy.stats import norm, uniform
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
@@ -40,7 +40,7 @@ nsamp = 500
 nexp = 31
 
 #Dimensions
-dims_active = np.array([0,1,2])
+dims_active = np.array([0,1,3])
 
 ndims = 5
 
@@ -135,7 +135,7 @@ mus = np.empty((nsamp,ndims_active))
 for s in tqdm(range(nsamp)):
 
     #Loop dimensions
-    for d in dims_active:
+    for di,d in enumerate(dims_active):
     
         #Loop over experiments
         for e in range(nexp):
@@ -144,7 +144,7 @@ for s in tqdm(range(nsamp)):
             X[e,:] = update_dim(X=X[e],d=d,e=e,mu=mu,sig=sig)
             
         #Update hyper-parameters
-        mu[d], sig[d] = update_hyper(X=X[:,d],mu=mu[d],sig=sig[d])
+        mu[di], sig[di] = update_hyper(X=X[:,d],mu=mu[di],sig=sig[di])
         
     Xs[s] = X
     mus[s] = mu
@@ -152,14 +152,15 @@ for s in tqdm(range(nsamp)):
     
 #%%
 
-Xp = scaler.transform(np.ones((500,ndims))*default)
 
-Xp[:,:3] = norm(loc=mus,scale=sigs).rvs((500,3))
+Xp = scaler.transform(np.ones((nsamp,ndims))*default)
+
+Xp[:,:3] = norm(loc=mus,scale=sigs).rvs((nsamp,3))
 Xp = scaler.inverse_transform(Xp)
 
 #%%
 
-names = fgr_data.Xtrain.columns[:3]
+names = fgr_data.Xtrain.columns[dims_active]
 
 corner(
        pd.DataFrame(
@@ -206,7 +207,7 @@ pred_p = gp.predict(Xp)
 mean = pred_p.mean(axis=0)
 std = pred_p.std(axis=0)
 
-pred_pp = pred_p + norm(scale=R(fgr_data.meas_v)).rvs((500,31))
+pred_pp = pred_p + norm(scale=R(fgr_data.meas_v)).rvs((nsamp,nexp))
 
 
 q = [0.05, 0.95]
@@ -219,13 +220,17 @@ l = np.linspace(0,.5,2)
 yerr = np.abs(pred_q-mean)
 yerr_p = np.abs(pred_qp-mean)
 
+xerr = R (fgr_data.meas_v) * 1.64
+
 # plt.plot(fgr_data.meas_v,mean,'o')
 
 plt.errorbar(
     fgr_data.meas_v,
     mean,
-    yerr,
-    fmt='o'
+    yerr = yerr,
+    # xerr = xerr,
+    fmt='o',
+    capsize=2
       )
 
 plt.plot(
